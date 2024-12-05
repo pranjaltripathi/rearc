@@ -1,78 +1,129 @@
-# A quest in the clouds
+Rearc Deployment Project
+This repository contains the deployment of a Dockerized Node.js application on AWS infrastructure, including EC2, ECR, ALB, and ACM for HTTPS. The project showcases the use of Infrastructure as Code (IaC) with AWS CloudFormation, Docker, and Load Balancer configuration for a scalable and secure deployment.
 
-### Q. What is this quest?
+Features
+Dockerized Node.js application for easy portability.
+AWS Elastic Container Registry (ECR) for managing Docker images.
+EC2 instance to host the application.
+Application Load Balancer (ALB) for traffic routing and scalability.
+Health checks and secure HTTP access.
+Prerequisites
+AWS CLI installed and configured with appropriate IAM permissions.
+Docker installed locally.
+Access to an AWS account.
+Deployment Steps
+Step 1: Clone the Repository
+Clone this repository to your local machine:
 
-It is a fun way to assess your cloud skills. It is also a good representative sample of the work we do at Rearc. Quest is a webapp made with node.js and golang.
+bash
+Copy code
+git clone https://github.com/pranjaltripathi/rearc.git
+cd rearc
+Step 2: Build and Push Docker Image to ECR
+Authenticate Docker with Amazon ECR:
 
-### Q. So what skills should I have?
-- Public cloud: AWS, GCP, Azure.
-  - More than one cloud is a "good to have" but one is a "must have".
-- General cloud concepts, especially networking.
-- Containerization, such as: Docker, containerd, kubernetes
-- IaC (Infrastructure as code). At least some Terraform preferred.
-- Linux (or other POSIX OS).
-- VCS (Version Control System). Git is highly preferred. 
-- TLS is a plus.
+bash
+Copy code
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 017820661592.dkr.ecr.us-east-1.amazonaws.com
+Build the Docker image:
 
-### Q. What do I have to do?
-You may do all or some of the following tasks. Please read over the complete list before starting.
+bash
+Copy code
+docker build -t webapp .
+Tag the Docker image:
 
-1. If you know how to use git, start a git repository (local-only is acceptable) and commit all of your work to it.
-1. Use Infrastructure as Code (IaC) to the deploy the code as specified below.
-   - Terraform is ideal, but use whatever you know, e.g. CloudFormation, CDK, Deployment Manager, etc.
-1. Deploy the app in a container in any public cloud using the services you think best solve this problem.
-   - Use `node` as the base image. Version `node:10` or later should work.
-1. Navigate to the index page to obtain the SECRET_WORD.
-1. Inject an environment variable (`SECRET_WORD`) in the Docker container using the value on the index page.
-1. Deploy a load balancer in front of the app.
-1. Add TLS (https). You may use locally-generated certs.
+bash
+Copy code
+docker tag webapp:latest 017820661592.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+Push the Docker image to ECR:
 
-### Q. How do I know I have solved these stages?
-Each stage can be tested as follows (where `<ip_or_host>` is the location where the app is deployed):
+bash
+Copy code
+docker push 017820661592.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+Step 3: Deploy Infrastructure with CloudFormation
+Use the provided CloudFormation template (cft.yaml) to deploy the AWS resources.
 
-1. Public cloud & index page (contains the secret word) - `http(s)://<ip_or_host>[:port]/`
-1. Docker check - `http(s)://<ip_or_host>[:port]/docker`
-1. Secret Word check - `http(s)://<ip_or_host>[:port]/secret_word`
-1. Load Balancer check  - `http(s)://<ip_or_host>[:port]/loadbalanced`
-1. TLS check - `http(s)://<ip_or_host>[:port]/tls`
+Validate the CloudFormation template:
 
-### Q. Do I have to do all these?
-You may do whichever, and however many, of the tasks above as you'd like. We suspect that once you start, you won't be able to stop. It's addictive. Extra credit if you are able to submit working entries for more than one cloud provider.
+bash
+Copy code
+aws cloudformation validate-template --template-body file://cft.yaml
+Create a CloudFormation stack:
 
-### Q. What do I have to submit?
-1. Your work assets, as one or both of the following:
-   - A link to a hosted git repository.
-   - A compressed file containing your project directory (zip, tgz, etc). Include the `.git` sub-directory if you used git.
-1. Proof of completion, as one or both of the following:
-   - Link(s) to hosted public cloud deployment(s).
-   - One or more screenshots showing, at least, the index page of the final deployment in one or more public cloud(s) you have chosen.
-1. An answer to the prompt: "Given more time, I would improve..."
-   - Discuss any shortcomings/immaturities in your solution and the reasons behind them (lack of time is a perfectly fine reason!)
-   - **This may carry as much weight as the code itself**
+bash
+Copy code
+aws cloudformation create-stack --stack-name webapp-stack --template-body file://cft.yaml --capabilities CAPABILITY_NAMED_IAM
+Wait for the stack creation to complete:
 
-Your work assets should include:
+bash
+Copy code
+aws cloudformation wait stack-create-complete --stack-name webapp-stack
+Step 4: Configure the EC2 Instance
+SSH into the EC2 instance:
 
-- IaC files, if you completed that task.
-- One or more Dockerfiles, if you completed that task.
-- A sensible README or other file(s) that contain instructions, notes, or other written documentation to help us review and assess your submission.
-  - **Note** - the more this looks like a finished solution to deliver to a customer, the better.
+bash
+Copy code
+ssh -i <key-pair.pem> ec2-user@<EC2_PUBLIC_IP>
+Install Docker and start the service:
 
-### Q. How long do I need to host my submission on public cloud(s)?
-You don't have to at all if you don't want to. You can run it in public cloud(s), grab a screenshot, then tear it all down to avoid costs.
+bash
+Copy code
+sudo yum update -y
+sudo yum install -y docker
+sudo service docker start
+Run the Docker container on EC2:
 
-If you _want_ to host it longer for us to view it, we recommend taking a screenshot anyway and sending that along with the link. Then you can tear down the quest whenever you want and we'll still have the screenshot. We recommend waiting no longer than one week after sending us the link before tearing it down.
+bash
+Copy code
+docker run -d -p 3000:3000 017820661592.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+Step 5: Configure Application Load Balancer
+Set up an Application Load Balancer (ALB) with the following configuration:
 
-### Q. What if I successfully complete all the challenges?
-We have many more for you to solve as a member of the Rearc team!
+HTTP Listener (Port 80): Forward to the target group with EC2 instance on port 3000.
+HTTPS Listener (Port 443): Use the certificate from ACM for secure access.
+Target Group:
 
-### Q. What if I find a bug?
-Awesome! Tell us you found a bug along with your submission and we'll talk more!
+Health check path: /
+Protocol: HTTP
+Port: 3000
 
-### Q. What if I fail?
-There is no fail. Complete whatever you can and then submit your work. Doing _everything_ in the quest is not a guarantee that you will "pass" the quest, just like not doing something is not a guarantee you will "fail" the quest.
 
-### Q. Can I share this quest with others?
-No. After interviewing, please change any solutions shared publicly to be private.
+Use the ALB DNS name or your custom domain name.
+Validate the domain via DNS (CNAME record).
+Attach the certificate to the ALB:
 
-### Q. Do I have to spend money out of my own pocket to complete the quest?
-No. There are many possible solutions to this quest that would be zero cost to you when using [AWS](https://aws.amazon.com/free), [GCP](https://cloud.google.com/free), or [Azure](https://azure.microsoft.com/en-us/pricing/free-services).
+
+
+Step 7: Test the Deployment
+Access the application via the Load Balancer's DNS:
+bash
+Copy code
+http://<ALB_DNS>:3000
+Securely access the application with HTTPS:
+bash
+Copy code
+https://<ALB_DNS>
+Directory Structure
+graphql
+Copy code
+rearc/
+│
+├── Dockerfile              # Dockerfile to build the application image
+├── cft.yaml                # CloudFormation template for AWS resources
+├── 000.js                  # Node.js application file
+├── package.json            # Application dependencies
+├── README.md               # Project documentation
+└── screenshots/            # Screenshots of deployment
+Improvements and Next Steps
+Given more time, I would:
+
+Implement auto-scaling for the EC2 instances behind the ALB to handle increased traffic.
+Set up a CI/CD pipeline with AWS CodePipeline or Jenkins for automated builds and deployments.
+Add application monitoring and logging using CloudWatch or a third-party tool like Datadog.
+Configure a custom domain using Route 53 for better branding.
+Proof of Deployment
+Live URL:
+arduino
+Copy code
+http://webapp-loadb-qlqqi6whnmua-32587256.us-east-1.elb.amazonaws.com:3000/
+Screenshot: See screenshots/deployment.png.
