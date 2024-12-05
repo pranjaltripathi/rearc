@@ -18,6 +18,7 @@ Clone this repository to your local machine:
 bash
 Copy code
 git clone https://github.com/pranjaltripathi/rearc.git
+branch :- Master
 cd rearc
 Step 2: Build and Push Docker Image to ECR
 Authenticate Docker with Amazon ECR:
